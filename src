@@ -1,0 +1,131 @@
+from google.colab import files
+files.upload()
+
+import os
+import shutil
+
+# Create Kaggle directory if it doesn't exist
+os.makedirs("/root/.kaggle", exist_ok=True)
+
+# Move kaggle.json to the correct location
+shutil.move("kaggle.json", "/root/.kaggle/")
+
+# Set proper file permissions
+os.chmod("/root/.kaggle/kaggle.json", 600)
+
+import os
+import zipfile
+
+# Download dataset from Kaggle
+os.system("kaggle datasets download -d tienen/handwritten-signature-verification")
+
+# Extract the dataset
+with zipfile.ZipFile("handwritten-signature-verification.zip", "r") as zip_ref:
+    zip_ref.extractall("signature_dataset")
+
+print("Dataset downloaded and extracted successfully!")
+
+import os
+import cv2
+import matplotlib.pyplot as plt
+import random
+
+# Define dataset path
+dataset_path = "signature_dataset"
+
+# Get list of all image files in the dataset
+image_files = []
+for root, _, files in os.walk(dataset_path):
+    for file in files:
+        if file.lower().endswith((".png", ".jpg", ".jpeg")):
+            image_files.append(os.path.join(root, file))
+
+# Ensure there are images in the dataset
+if not image_files:
+    print("No images found in the dataset directory.")
+else:
+    # Randomly select an image
+    image_path = random.choice(image_files)
+
+    # Load the image in grayscale
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+    if image is None:
+        print(f"Error loading image: {image_path}")
+    else:
+        # Display the image
+        plt.figure(figsize=(5, 5))
+        plt.imshow(image, cmap="gray")
+        plt.title(f"Sample Signature: {os.path.basename(image_path)}")
+        plt.axis("off")
+        plt.show()
+
+
+import os
+
+dataset_path = "signature_dataset"
+
+# Function to list contents of subdirectories
+def explore_folder(path, depth=2):
+    for root, dirs, files in os.walk(path):
+        level = root.replace(path, "").count(os.sep)
+        if level < depth:  # Limit depth to avoid printing too much
+            print(f"📂 Folder: {root}")
+            print("   📄 Files:", files[:5])  # Show first 5 files only
+            print("   📁 Subfolders:", dirs)
+            print("-" * 50)
+
+# Explore dataset structure
+explore_folder(dataset_path, depth=3)
+
+
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+
+# Define image paths
+genuine_path = "signature_dataset/sample_signature/sample_Signature/genuine/"
+forged_path = "signature_dataset/sample_signature/sample_Signature/forged/"
+
+# Image settings
+IMG_SIZE = (128, 128)  # Resize to 128x128
+NORMALIZE = True  # Whether to scale pixel values
+
+# Function to load images
+def load_images_from_folder(folder, label):
+    images, labels = [], []
+    for file in os.listdir(folder):
+        img_path = os.path.join(folder, file)
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)  # Convert to grayscale
+        if img is not None:
+            img = cv2.resize(img, IMG_SIZE)  # Resize
+            if NORMALIZE:
+                img = img / 255.0  # Normalize pixel values (0-1)
+            images.append(img)
+            labels.append(label)
+    return images, labels
+
+# Load dataset
+genuine_images, genuine_labels = load_images_from_folder(genuine_path, label=1)
+forged_images, forged_labels = load_images_from_folder(forged_path, label=0)
+
+# Combine both classes
+X = np.array(genuine_images + forged_images)
+y = np.array(genuine_labels + forged_labels)
+
+# Reshape for deep learning models (adding channel dimension)
+X = X.reshape(-1, IMG_SIZE[0], IMG_SIZE[1], 1)  # (num_samples, 128, 128, 1)
+
+# Split into train/test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Show sample images
+plt.figure(figsize=(10, 4))
+for i in range(5):
+    plt.subplot(1, 5, i+1)
+    plt.imshow(X_train[i].reshape(IMG_SIZE), cmap="gray")
+    plt.title(f"Label: {y_train[i]}")
+    plt.axis("off")
+plt.show()
